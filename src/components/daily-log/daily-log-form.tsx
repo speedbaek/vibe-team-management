@@ -21,7 +21,6 @@ interface DailyLogFormProps {
     plannedTasks: Task[];
     completedTasks: { id: string; text: string }[];
     blockers: string | null;
-    mood: number | null;
   };
   onSaved: () => void;
 }
@@ -29,7 +28,6 @@ interface DailyLogFormProps {
 export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) {
   const [tasks, setTasks] = useState<Task[]>(initialData?.plannedTasks || []);
   const [blockers, setBlockers] = useState(initialData?.blockers || "");
-  const [mood, setMood] = useState(initialData?.mood || 3);
   const [saving, setSaving] = useState(false);
 
   const addTask = () => {
@@ -68,7 +66,6 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
           plannedTasks: tasks,
           completedTasks,
           blockers: blockers || undefined,
-          mood,
         }),
       });
 
@@ -85,8 +82,6 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
       setSaving(false);
     }
   };
-
-  const moodEmojis = ["😫", "😟", "😐", "🙂", "😄"];
 
   return (
     <Card>
@@ -126,32 +121,13 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
         </div>
 
         <div className="space-y-2">
-          <Label className="text-base font-semibold">어려운 점 / 고민</Label>
+          <Label className="text-base font-semibold">하루 정리 / 고민</Label>
           <Textarea
             value={blockers}
             onChange={(e) => setBlockers(e.target.value)}
-            placeholder="오늘 업무 중 어려운 점이나 고민이 있나요?"
+            placeholder="오늘 하루를 정리하거나 고민이 있다면 적어주세요."
             rows={3}
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-base font-semibold">오늘 기분은 어떤가요?</Label>
-          <div className="flex gap-2">
-            {moodEmojis.map((emoji, i) => (
-              <button
-                key={i}
-                onClick={() => setMood(i + 1)}
-                className={`text-2xl p-2 rounded-lg transition-all ${
-                  mood === i + 1
-                    ? "bg-primary/10 scale-110"
-                    : "hover:bg-accent"
-                }`}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
         </div>
 
         <Button onClick={handleSave} disabled={saving} className="w-full">

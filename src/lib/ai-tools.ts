@@ -24,13 +24,7 @@ export const dailyLogDraftSchema = z.object({
   blockers: z
     .string()
     .optional()
-    .describe("어려운 점이나 블로커 (없으면 생략)"),
-  mood: z
-    .number()
-    .min(1)
-    .max(5)
-    .optional()
-    .describe("컨디션 (1=매우나쁨 ~ 5=매우좋음, 대화 분위기로 추측)"),
+    .describe("하루 정리나 고민 (없으면 생략)"),
 });
 
 export const weeklyReviewDraftSchema = z.object({

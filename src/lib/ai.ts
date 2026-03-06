@@ -94,7 +94,7 @@ ${
 날짜: ${new Date(log.date).toISOString().split("T")[0]}
 계획: ${JSON.stringify(log.plannedTasks)}
 완료: ${JSON.stringify(log.completedTasks)}
-어려운 점: ${log.blockers || "없음"}`
+하루 정리/고민: ${log.blockers || "없음"}`
         )
         .join("\n")
     : "아직 일일 기록이 없습니다."

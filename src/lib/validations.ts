@@ -16,7 +16,6 @@ export const dailyLogSchema = z.object({
     })
   ),
   blockers: z.string().optional(),
-  mood: z.number().min(1).max(5).optional(),
 });
 
 export const weeklyReviewSchema = z.object({

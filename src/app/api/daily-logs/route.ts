@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { date, plannedTasks, completedTasks, blockers, mood } = parsed.data;
+  const { date, plannedTasks, completedTasks, blockers } = parsed.data;
 
   const log = await prisma.dailyLog.upsert({
     where: {
@@ -52,13 +52,11 @@ export async function POST(req: NextRequest) {
       plannedTasks,
       completedTasks,
       blockers,
-      mood,
     },
     update: {
       plannedTasks,
       completedTasks,
       blockers,
-      mood,
     },
   });
 

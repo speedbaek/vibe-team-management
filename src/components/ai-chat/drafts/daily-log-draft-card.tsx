@@ -19,25 +19,15 @@ interface DailyLogDraft {
   plannedTasks: Task[];
   completedTasks: { id: string; text: string }[];
   blockers?: string;
-  mood?: number;
 }
 
 interface DailyLogDraftCardProps {
   draft: DailyLogDraft;
 }
 
-const moodEmojis = [
-  { value: 1, emoji: "😫" },
-  { value: 2, emoji: "😟" },
-  { value: 3, emoji: "😐" },
-  { value: 4, emoji: "🙂" },
-  { value: 5, emoji: "😄" },
-];
-
 export function DailyLogDraftCard({ draft }: DailyLogDraftCardProps) {
   const [tasks, setTasks] = useState<Task[]>(draft.plannedTasks);
   const [blockers, setBlockers] = useState(draft.blockers || "");
-  const [mood, setMood] = useState(draft.mood || 3);
   const [newTask, setNewTask] = useState("");
   const [saveState, setSaveState] = useState<"draft" | "saving" | "saved">(
     "draft"
@@ -77,7 +67,6 @@ export function DailyLogDraftCard({ draft }: DailyLogDraftCardProps) {
           plannedTasks: tasks,
           completedTasks,
           blockers: blockers || undefined,
-          mood,
         }),
       });
 
@@ -171,41 +160,18 @@ export function DailyLogDraftCard({ draft }: DailyLogDraftCardProps) {
           </div>
         </div>
 
-        {/* 어려운 점 */}
+        {/* 하루 정리 / 고민 */}
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block">
-            어려운 점 / 블로커
+            하루 정리 / 고민
           </label>
           <Textarea
             value={blockers}
             onChange={(e) => setBlockers(e.target.value)}
             rows={2}
             className="text-sm resize-none"
-            placeholder="어려운 점이 있다면 적어주세요..."
+            placeholder="오늘 하루를 정리하거나 고민이 있다면 적어주세요."
           />
-        </div>
-
-        {/* 컨디션 */}
-        <div>
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">
-            오늘의 컨디션
-          </label>
-          <div className="flex gap-2">
-            {moodEmojis.map(({ value, emoji }) => (
-              <button
-                key={value}
-                onClick={() => setMood(value)}
-                className={cn(
-                  "text-xl p-1 rounded transition-transform",
-                  mood === value
-                    ? "scale-125 bg-blue-100"
-                    : "opacity-50 hover:opacity-80"
-                )}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* 저장 버튼 */}

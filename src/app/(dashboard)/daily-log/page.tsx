@@ -38,7 +38,6 @@ export default function DailyLogPage() {
                     plannedTasks: selectedLog.plannedTasks as any,
                     completedTasks: selectedLog.completedTasks as any,
                     blockers: selectedLog.blockers,
-                    mood: selectedLog.mood,
                   }
                 : undefined
             }
