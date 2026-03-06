@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"C:/Users/TEHERAN/vibe-coding/vibe-team-management\" log --oneline -20)",
+      "Bash(python3 -c \":*)",
+      "Bash(node -e \":*)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(npm install)",
+      "Bash(npm run build)",
+      "Bash(npx prisma db push)",
+      "Bash(npm run db:seed)",
+      "Bash(ADMIN_EMAIL=kikak2000@gmail.com npx tsx prisma/seed.ts)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npx tsx -e \":*)",
+      "Bash(node -e \"const pkg = require\\(''./node_modules/ai/package.json''\\); console.log\\(''ai version:'', pkg.version\\); const pkg2 = require\\(''./node_modules/@ai-sdk/anthropic/package.json''\\); console.log\\(''@ai-sdk/anthropic version:'', pkg2.version\\);\")",
+      "Bash(node -e \"const { anthropic } = require\\(''@ai-sdk/anthropic''\\); console.log\\(''anthropic provider loaded:'', typeof anthropic\\);\")",
+      "Bash(node -e \"require\\(''dotenv''\\).config\\({ path: ''.env.local'' }\\); var k = process.env.ANTHROPIC_API_KEY || ''''; console.log\\(''key length:'', k.length\\); console.log\\(''key start:'', k.substring\\(0, 15\\)\\);\")",
+      "Bash(node -e \"var dotenv = require\\(''dotenv''\\); var r = dotenv.config\\({ path: ''.env.local'' }\\); console.log\\(''error:'', r.error\\); console.log\\(''parsed keys:'', Object.keys\\(r.parsed || {}\\)\\);\")",
+      "Bash(node -e \"var dotenv = require\\(''dotenv''\\); var r = dotenv.config\\({ path: ''.env.local'' }\\); var k = r.parsed[''ANTHROPIC_API_KEY'']; console.log\\(''parsed key length:'', k.length\\); console.log\\(''parsed key start:'', k.substring\\(0, 15\\)\\);\")",
+      "Bash(node -e \"console.log\\(''before dotenv:'', JSON.stringify\\(process.env.ANTHROPIC_API_KEY\\)\\); require\\(''dotenv''\\).config\\({ path: ''.env.local'', override: true }\\); console.log\\(''after dotenv:'', \\(process.env.ANTHROPIC_API_KEY || ''''\\).substring\\(0, 15\\)\\);\")",
+      "Bash(echo $ANTHROPIC_API_KEY)",
+      "Bash(node -e \"console.log\\(''env type:'', typeof process.env.ANTHROPIC_API_KEY\\); console.log\\(''env value repr:'', JSON.stringify\\(process.env.ANTHROPIC_API_KEY\\)\\);\")",
+      "Bash(node -e \"require\\(''dotenv''\\).config\\({ path: ''.env.local'', override: true }\\); var k = process.env.ANTHROPIC_API_KEY || ''''; console.log\\(''key length:'', k.length\\); console.log\\(''key prefix:'', k.substring\\(0, 15\\)\\);\")",
+      "Bash(npx next build)",
+      "Bash(xargs grep -l \"AIChatSession\\\\|aiChatSession\")",
+      "Bash(git config --global --add safe.directory C:/Users/TEHERAN/vibe-coding/vibe-team-management)",
+      "Bash(git add .gitignore components.json eslint.config.mjs next.config.ts package.json package-lock.json postcss.config.mjs tailwind.config.ts tsconfig.json prisma/ src/)",
+      "Bash(git commit:*)",
+      "Bash(git push origin main)",
+      "Bash(npx vercel --version)",
+      "Bash(git add src/app/page.tsx src/app/\\\\\\(dashboard\\\\\\)/page.tsx)",
+      "Bash(git add -A)"
+    ]
+  }
+}
