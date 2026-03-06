@@ -3,6 +3,7 @@ import type { NextAuthConfig } from "next-auth";
 
 export default {
   providers: [Google],
+  trustHost: true,
   pages: {
     signIn: "/login",
   },
