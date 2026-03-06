@@ -16,7 +16,15 @@ export default auth((req) => {
   }
 
   if (isLoggedIn && isOnLoginPage) {
-    return Response.redirect(new URL("/daily-log", req.nextUrl));
+    return Response.redirect(new URL("/ai-chat", req.nextUrl));
+  }
+
+  // 어드민 페이지 접근 제어
+  if (isLoggedIn && pathname.startsWith("/admin")) {
+    const role = (req.auth as any)?.user?.role;
+    if (role !== "ADMIN") {
+      return Response.redirect(new URL("/ai-chat", req.nextUrl));
+    }
   }
 });
 

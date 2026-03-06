@@ -1,6 +1,9 @@
 "use client";
 
+import { useSession } from "next-auth/react";
 import { CalendarDays, FileText, Target, MessageSquare } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 const actions = [
   {
@@ -34,13 +37,44 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ onSelect }: QuickActionsProps) {
+  const { data: session } = useSession();
+  const user = session?.user;
+  const role = (user as any)?.role;
+
+  const initials = user?.name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase() || "?";
+
   return (
     <div className="flex flex-col items-center justify-center h-full">
       <div className="text-center mb-8">
+        {/* 로그인 사용자 정보 */}
+        {user && (
+          <div className="flex flex-col items-center mb-6">
+            <Avatar className="h-12 w-12 mb-2">
+              <AvatarImage src={user.image || ""} alt={user.name || ""} />
+              <AvatarFallback>{initials}</AvatarFallback>
+            </Avatar>
+            <p className="text-sm font-medium">{user.name}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-muted-foreground">{user.email}</span>
+              {role && (
+                <Badge variant={role === "ADMIN" ? "default" : "secondary"} className="text-[10px]">
+                  {role === "ADMIN" ? "관리자" : "멤버"}
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-4">
           <MessageSquare className="h-7 w-7 text-primary" />
         </div>
-        <h2 className="text-lg font-semibold">AI 코치</h2>
+        <h2 className="text-lg font-semibold">
+          {user?.name ? `${user.name}님, 안녕하세요!` : "AI 코치"}
+        </h2>
         <p className="text-sm text-muted-foreground mt-1">
           무엇을 도와드릴까요?
         </p>

@@ -31,7 +31,7 @@ function LoginContent() {
         <Button
           className="w-full"
           size="lg"
-          onClick={() => signIn("google", { callbackUrl: "/daily-log" })}
+          onClick={() => signIn("google", { callbackUrl: "/ai-chat" })}
         >
           <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
             <path
