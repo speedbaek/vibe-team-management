@@ -3,12 +3,23 @@
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 
+interface Attachment {
+  name?: string;
+  contentType?: string;
+  url: string;
+}
+
 interface ChatMessageProps {
   role: "user" | "assistant";
   content: string;
+  attachments?: Attachment[];
 }
 
-export function ChatMessage({ role, content }: ChatMessageProps) {
+export function ChatMessage({ role, content, attachments }: ChatMessageProps) {
+  const imageAttachments = attachments?.filter(
+    (a) => a.contentType?.startsWith("image/") || a.url?.startsWith("data:image/")
+  );
+
   return (
     <div
       className={cn(
@@ -24,12 +35,24 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
             : "bg-muted"
         )}
       >
+        {imageAttachments && imageAttachments.length > 0 && (
+          <div className="mb-2">
+            {imageAttachments.map((img, i) => (
+              <img
+                key={i}
+                src={img.url}
+                alt={img.name || "첨부 이미지"}
+                className="max-h-48 rounded-md object-cover"
+              />
+            ))}
+          </div>
+        )}
         {role === "assistant" ? (
           <div className="prose prose-sm max-w-none dark:prose-invert [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2">
             <ReactMarkdown>{content}</ReactMarkdown>
           </div>
         ) : (
-          <div className="whitespace-pre-wrap">{content}</div>
+          content && <div className="whitespace-pre-wrap">{content}</div>
         )}
       </div>
     </div>

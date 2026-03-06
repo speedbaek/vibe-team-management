@@ -105,15 +105,25 @@ export async function POST(req: Request) {
       },
     });
 
-    // Save user message to DB (fire-and-forget)
+    // Save user message to DB (fire-and-forget, text only - images not stored)
     const lastMsg = messages[messages.length - 1];
     if (lastMsg?.role === "user") {
+      const textContent =
+        typeof lastMsg.content === "string"
+          ? lastMsg.content
+          : Array.isArray(lastMsg.content)
+            ? lastMsg.content
+                .filter((p: any) => p.type === "text")
+                .map((p: any) => p.text)
+                .join("\n") || "[이미지 첨부]"
+            : "[이미지 첨부]";
+
       prisma.aIChatMessage
         .create({
           data: {
             sessionId: currentSessionId,
             role: "user",
-            content: lastMsg.content,
+            content: textContent,
           },
         })
         .catch(console.error);

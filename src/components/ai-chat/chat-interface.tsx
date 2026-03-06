@@ -25,6 +25,9 @@ export function ChatInterface({
   isFirstTime = false,
 }: ChatInterfaceProps) {
   const [onboardingSent, setOnboardingSent] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
   const {
     messages,
     input,
@@ -80,6 +83,38 @@ export function ChatInterface({
     [append]
   );
 
+  const handleImageSelect = (file: File) => {
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageRemove = () => {
+    setImageFile(null);
+    setImagePreview(null);
+  };
+
+  const handleFormSubmit = () => {
+    if (imageFile && imagePreview) {
+      handleSubmit(undefined, {
+        experimental_attachments: [
+          {
+            name: imageFile.name,
+            contentType: imageFile.type,
+            url: imagePreview,
+          },
+        ],
+      });
+      setImageFile(null);
+      setImagePreview(null);
+    } else {
+      handleSubmit();
+    }
+  };
+
   const renderToolInvocations = (toolInvocations: any[]) => {
     return toolInvocations.map((invocation: any) => {
       if (invocation.state === "result") {
@@ -123,10 +158,11 @@ export function ChatInterface({
           ) : (
             messages.map((msg) => (
               <div key={msg.id}>
-                {msg.content && (
+                {(msg.content || msg.experimental_attachments) && (
                   <ChatMessage
                     role={msg.role as "user" | "assistant"}
                     content={msg.content}
+                    attachments={msg.experimental_attachments}
                   />
                 )}
                 {msg.toolInvocations &&
@@ -157,8 +193,11 @@ export function ChatInterface({
           onChange={(v) =>
             handleInputChange({ target: { value: v } } as any)
           }
-          onSubmit={() => handleSubmit()}
+          onSubmit={handleFormSubmit}
           isLoading={isLoading}
+          imagePreview={imagePreview}
+          onImageSelect={handleImageSelect}
+          onImageRemove={handleImageRemove}
         />
       </CardContent>
     </Card>
