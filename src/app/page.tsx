@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 export default async function Home() {
   const session = await auth();
   if (session) {
-    redirect("/daily-log");
+    redirect("/ai-chat");
   } else {
     redirect("/login");
   }
