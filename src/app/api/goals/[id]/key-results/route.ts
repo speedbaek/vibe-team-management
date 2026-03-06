@@ -5,13 +5,11 @@ import { z } from "zod";
 
 const createKRSchema = z.object({
   description: z.string().min(1),
-  targetValue: z.number().positive(),
-  unit: z.string().optional(),
 });
 
 const updateKRSchema = z.object({
   keyResultId: z.string(),
-  currentValue: z.number().min(0),
+  completed: z.boolean(),
 });
 
 export async function POST(
@@ -35,7 +33,7 @@ export async function POST(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const kr = await prisma.keyResult.create({
-    data: { goalId, ...parsed.data },
+    data: { goalId, description: parsed.data.description },
   });
 
   return NextResponse.json({ data: kr }, { status: 201 });
@@ -63,21 +61,19 @@ export async function PUT(
 
   await prisma.keyResult.update({
     where: { id: parsed.data.keyResultId },
-    data: { currentValue: parsed.data.currentValue },
+    data: { completed: parsed.data.completed },
   });
 
   // Recalculate goal progress
   const allKRs = await prisma.keyResult.findMany({ where: { goalId } });
-  const avgProgress = Math.round(
-    allKRs.reduce(
-      (sum, kr) => sum + (kr.currentValue / kr.targetValue) * 100,
-      0
-    ) / allKRs.length
-  );
+  const completedCount = allKRs.filter((kr) => kr.completed).length;
+  const progress = allKRs.length > 0
+    ? Math.round((completedCount / allKRs.length) * 100)
+    : 0;
 
   const updatedGoal = await prisma.goal.update({
     where: { id: goalId },
-    data: { progress: Math.min(avgProgress, 100) },
+    data: { progress },
     include: { keyResults: true },
   });
 

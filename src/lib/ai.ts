@@ -88,10 +88,10 @@ export function buildSystemPrompt(context: {
    - 최근 일일 기록들을 참고하여 성과(achievements)를 자동으로 채웁니다
    - weekStart는 "${weekStart}"를 사용합니다
 
-3. **create_goal_draft**: OKR 목표 초안 생성
-   - "목표 세워줘", "OKR 도와줘", "이번 분기 목표" 등의 요청에 사용
+3. **create_goal_draft**: 목표 초안 생성
+   - "목표 세워줘", "이번 분기 목표" 등의 요청에 사용
    - quarter는 "${currentQuarter}"를 사용합니다
-   - 핵심 결과(Key Results)는 측정 가능하게 구체적으로 작성합니다
+   - 할 일 목록은 구체적이고 실행 가능한 항목으로 작성합니다
 
 ## 도구 사용 시 주의사항:
 - 정보가 충분할 때만 도구를 호출합니다. 부족하면 먼저 질문합니다.
@@ -113,7 +113,7 @@ ${
     : "아직 일일 기록이 없습니다."
 }
 
-## 현재 OKR 목표:
+## 현재 목표:
 ${
   context.currentGoals.length > 0
     ? context.currentGoals
@@ -121,10 +121,10 @@ ${
           (goal: any) => `
 목표: ${goal.objective} (${goal.quarter})
 진행률: ${goal.progress}%
-핵심 결과: ${goal.keyResults
+할 일: ${goal.keyResults
             .map(
               (kr: any) =>
-                `${kr.description}: ${kr.currentValue}/${kr.targetValue} ${kr.unit || ""}`
+                `${kr.completed ? "[완료]" : "[미완료]"} ${kr.description}`
             )
             .join(", ")}`
         )

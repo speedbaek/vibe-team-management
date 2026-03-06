@@ -44,20 +44,15 @@ export const weeklyReviewDraftSchema = z.object({
 });
 
 export const goalDraftSchema = z.object({
-  objective: z.string().describe("OKR 목표 (Objective)"),
+  objective: z.string().describe("목표"),
   quarter: z
     .string()
     .describe("분기 (예: 2026-Q1)"),
   keyResults: z
     .array(
       z.object({
-        description: z.string().describe("핵심 결과 (Key Result) 설명"),
-        targetValue: z.number().describe("목표 수치"),
-        unit: z
-          .string()
-          .optional()
-          .describe("단위 (예: %, 건, 점)"),
+        description: z.string().describe("할 일 항목"),
       })
     )
-    .describe("핵심 결과 목록 (측정 가능하게)"),
+    .describe("목표 달성을 위한 할 일 목록"),
 });

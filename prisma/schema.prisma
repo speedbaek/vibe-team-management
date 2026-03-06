@@ -133,14 +133,12 @@ model Goal {
 }
 
 model KeyResult {
-  id           String   @id @default(cuid())
-  goalId       String
-  description  String
-  targetValue  Float    @default(100)
-  currentValue Float    @default(0)
-  unit         String?  // "%", "count", "score"
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  goalId      String
+  description String
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
 

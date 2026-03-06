@@ -8,8 +8,6 @@ import { Target, Save, CheckCircle2, Plus, Trash2 } from "lucide-react";
 
 interface KeyResultDraft {
   description: string;
-  targetValue: number;
-  unit?: string;
 }
 
 interface GoalDraft {
@@ -32,9 +30,9 @@ export function GoalDraftCard({ draft }: GoalDraftCardProps) {
     "draft"
   );
 
-  const updateKR = (index: number, field: keyof KeyResultDraft, value: any) => {
+  const updateKR = (index: number, value: string) => {
     setKeyResults((prev) =>
-      prev.map((kr, i) => (i === index ? { ...kr, [field]: value } : kr))
+      prev.map((kr, i) => (i === index ? { description: value } : kr))
     );
   };
 
@@ -43,10 +41,7 @@ export function GoalDraftCard({ draft }: GoalDraftCardProps) {
   };
 
   const addKR = () => {
-    setKeyResults((prev) => [
-      ...prev,
-      { description: "", targetValue: 100, unit: "%" },
-    ]);
+    setKeyResults((prev) => [...prev, { description: "" }]);
   };
 
   const handleSave = async () => {
@@ -62,19 +57,15 @@ export function GoalDraftCard({ draft }: GoalDraftCardProps) {
       if (!goalRes.ok) throw new Error("목표 저장 실패");
       const { data: goal } = await goalRes.json();
 
-      // 2. 핵심 결과 생성
+      // 2. 할 일 항목 생성
       for (const kr of keyResults) {
         if (!kr.description.trim()) continue;
         const krRes = await fetch(`/api/goals/${goal.id}/key-results`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            description: kr.description,
-            targetValue: kr.targetValue,
-            unit: kr.unit || undefined,
-          }),
+          body: JSON.stringify({ description: kr.description }),
         });
-        if (!krRes.ok) throw new Error("핵심 결과 저장 실패");
+        if (!krRes.ok) throw new Error("항목 저장 실패");
       }
 
       setSaveState("saved");
@@ -102,7 +93,7 @@ export function GoalDraftCard({ draft }: GoalDraftCardProps) {
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Target className="h-4 w-4 text-orange-600" />
-          목표 (OKR) 초안
+          목표 초안
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -110,7 +101,7 @@ export function GoalDraftCard({ draft }: GoalDraftCardProps) {
         <div className="flex gap-2">
           <div className="flex-1">
             <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              목표 (Objective) *
+              목표 *
             </label>
             <Input
               value={objective}
@@ -130,33 +121,19 @@ export function GoalDraftCard({ draft }: GoalDraftCardProps) {
           </div>
         </div>
 
-        {/* 핵심 결과 */}
+        {/* 할 일 목록 */}
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-2 block">
-            핵심 결과 (Key Results)
+            할 일 목록
           </label>
           <div className="space-y-2">
             {keyResults.map((kr, i) => (
               <div key={i} className="flex gap-2 items-center">
                 <Input
                   value={kr.description}
-                  onChange={(e) => updateKR(i, "description", e.target.value)}
-                  placeholder="핵심 결과 설명"
+                  onChange={(e) => updateKR(i, e.target.value)}
+                  placeholder="할 일을 입력하세요"
                   className="text-sm flex-1"
-                />
-                <Input
-                  type="number"
-                  value={kr.targetValue}
-                  onChange={(e) =>
-                    updateKR(i, "targetValue", Number(e.target.value))
-                  }
-                  className="text-sm w-20"
-                />
-                <Input
-                  value={kr.unit || ""}
-                  onChange={(e) => updateKR(i, "unit", e.target.value)}
-                  placeholder="단위"
-                  className="text-sm w-16"
                 />
                 <button
                   onClick={() => removeKR(i)}
@@ -174,7 +151,7 @@ export function GoalDraftCard({ draft }: GoalDraftCardProps) {
             className="mt-2"
           >
             <Plus className="h-3 w-3 mr-1" />
-            핵심 결과 추가
+            할 일 추가
           </Button>
         </div>
 

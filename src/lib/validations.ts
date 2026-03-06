@@ -33,6 +33,4 @@ export const goalSchema = z.object({
 
 export const keyResultSchema = z.object({
   description: z.string().min(1),
-  targetValue: z.number().positive(),
-  unit: z.string().optional(),
 });
