@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat, type Message } from "ai/react";
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { QuickActions } from "./quick-actions";
@@ -15,13 +15,16 @@ interface ChatInterfaceProps {
   sessionId: string | null;
   onSessionCreated: (sessionId: string) => void;
   initialMessages?: Message[];
+  isFirstTime?: boolean;
 }
 
 export function ChatInterface({
   sessionId,
   onSessionCreated,
   initialMessages,
+  isFirstTime = false,
 }: ChatInterfaceProps) {
+  const [onboardingSent, setOnboardingSent] = useState(false);
   const {
     messages,
     input,
@@ -61,6 +64,14 @@ export function ChatInterface({
       setMessages([]);
     }
   }, [sessionId]);
+
+  // 첫 사용자 자동 온보딩 메시지
+  useEffect(() => {
+    if (isFirstTime && !onboardingSent && !sessionId && messages.length === 0) {
+      setOnboardingSent(true);
+      append({ role: "user", content: "안녕하세요, 처음 왔어요!" });
+    }
+  }, [isFirstTime, onboardingSent, sessionId, messages.length, append]);
 
   const handleQuickAction = useCallback(
     (message: string) => {

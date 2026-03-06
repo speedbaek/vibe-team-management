@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { type Message } from "ai/react";
 import { ChatInterface } from "@/components/ai-chat/chat-interface";
 import { ChatSidebar } from "@/components/ai-chat/chat-sidebar";
@@ -11,6 +11,18 @@ export default function AIChatPage() {
     undefined
   );
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isFirstTime, setIsFirstTime] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/ai/chat/sessions")
+      .then((res) => res.json())
+      .then(({ data }) => {
+        if (data && data.length === 0) {
+          setIsFirstTime(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSelectSession = useCallback(async (id: string) => {
     try {
@@ -59,6 +71,7 @@ export default function AIChatPage() {
           sessionId={sessionId}
           onSessionCreated={handleSessionCreated}
           initialMessages={initialMessages}
+          isFirstTime={isFirstTime}
         />
       </div>
     </div>

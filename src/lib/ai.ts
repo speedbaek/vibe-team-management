@@ -1,27 +1,33 @@
 import { prisma } from "@/lib/prisma";
 
 export async function buildContext(userId: string) {
-  const [recentLogs, currentGoals, recentReview, user] = await Promise.all([
-    prisma.dailyLog.findMany({
-      where: { userId },
-      orderBy: { date: "desc" },
-      take: 14,
-    }),
-    prisma.goal.findMany({
-      where: { userId, status: "ACTIVE" },
-      include: { keyResults: true },
-    }),
-    prisma.weeklyReview.findFirst({
-      where: { userId },
-      orderBy: { weekStart: "desc" },
-    }),
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { name: true, department: true },
-    }),
-  ]);
+  const [recentLogs, currentGoals, recentReview, user, chatSessionCount] =
+    await Promise.all([
+      prisma.dailyLog.findMany({
+        where: { userId },
+        orderBy: { date: "desc" },
+        take: 14,
+      }),
+      prisma.goal.findMany({
+        where: { userId, status: "ACTIVE" },
+        include: { keyResults: true },
+      }),
+      prisma.weeklyReview.findFirst({
+        where: { userId },
+        orderBy: { weekStart: "desc" },
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, department: true },
+      }),
+      prisma.aIChatSession.count({
+        where: { userId },
+      }),
+    ]);
 
-  return { recentLogs, currentGoals, recentReview, user };
+  const isFirstTime = chatSessionCount === 0;
+
+  return { recentLogs, currentGoals, recentReview, user, isFirstTime };
 }
 
 export function buildSystemPrompt(context: {
@@ -29,6 +35,7 @@ export function buildSystemPrompt(context: {
   currentGoals: any[];
   recentReview: any;
   user: any;
+  isFirstTime: boolean;
 }) {
   const today = new Date().toISOString().split("T")[0];
   const dayOfWeek = new Date().getDay();
@@ -40,6 +47,12 @@ export function buildSystemPrompt(context: {
   const hasLogToday = context.recentLogs.some(
     (log) => new Date(log.date).toISOString().split("T")[0] === today
   );
+
+  // 이번 주 회고 작성 여부 체크 (금~일요일에 리마인드)
+  const isWeekendOrFriday = dayOfWeek >= 5 || dayOfWeek === 0;
+  const hasReviewThisWeek =
+    context.recentReview &&
+    new Date(context.recentReview.weekStart).toISOString().split("T")[0] === weekStart;
 
   const currentQuarter = `${new Date().getFullYear()}-Q${Math.ceil((new Date().getMonth() + 1) / 3)}`;
 
@@ -129,5 +142,23 @@ ${
     : "아직 주간 회고가 없습니다."
 }
 
-${!hasLogToday ? `\n[참고: 사용자가 아직 오늘의 일일 기록을 작성하지 않았습니다. 적절한 시점에 부드럽게 제안해주세요.]` : ""}`;
+${!hasLogToday ? `\n[참고: 사용자가 아직 오늘의 일일 기록을 작성하지 않았습니다. 적절한 시점에 부드럽게 제안해주세요.]` : ""}
+${isWeekendOrFriday && !hasReviewThisWeek ? `\n[참고: 이번 주 주간 회고가 아직 작성되지 않았습니다. 적절한 시점에 주간 회고 작성을 부드럽게 제안해주세요.]` : ""}
+${
+  context.isFirstTime
+    ? `
+## 온보딩 모드 (첫 방문 사용자):
+이 사용자는 처음 방문한 사용자입니다. 첫 메시지에 다음 내용을 자연스럽게 포함해주세요:
+1. 환영 인사 (이름 포함)
+2. 이 앱에서 할 수 있는 3가지 핵심 기능 소개:
+   - 일일 업무 기록: "오늘 업무 정리해줘"라고 말하면 됩니다
+   - 주간 회고: "이번 주 회고 써줘"로 한 주를 돌아볼 수 있습니다
+   - 목표 설정: "OKR 목표 세워줘"로 분기별 목표를 만들 수 있습니다
+3. 업무 고민이나 AI 자동화 관련 질문도 환영한다는 안내
+4. "오늘 어떤 업무를 하셨는지 말씀해주시면서 시작해볼까요?" 같은 자연스러운 대화 유도`
+    : ""
+}
+
+## 도움말 대응:
+사용자가 "도움말", "사용법", "뭘 할 수 있어", "기능 알려줘" 등의 키워드를 입력하면, 위 3가지 핵심 기능과 사용 예시를 다시 안내해주세요.`;
 }
