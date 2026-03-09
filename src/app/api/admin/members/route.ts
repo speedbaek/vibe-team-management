@@ -2,9 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
+
+  const { searchParams } = new URL(req.url);
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+
+  // 날짜 필터 조건
+  const dateFilter = from || to
+    ? {
+        createdAt: {
+          ...(from ? { gte: new Date(from) } : {}),
+          ...(to ? { lte: new Date(to + "T23:59:59.999Z") } : {}),
+        },
+      }
+    : {};
 
   const members = await prisma.user.findMany({
     select: {
@@ -22,16 +36,25 @@ export async function GET() {
     orderBy: { createdAt: "asc" },
   });
 
-  // 사용자별 AI 메시지 수 조회 (질문/답변)
+  // 사용자별 AI 메시지 수 조회 (날짜 필터 적용)
   const perUserStats = await Promise.all(
     members.map(async (m) => {
-      const counts = await prisma.aIChatMessage.groupBy({
-        by: ["role"],
-        _count: true,
-        where: { session: { userId: m.id } },
-      });
+      const [sessionCount, counts] = await Promise.all([
+        prisma.aIChatSession.count({
+          where: { userId: m.id, ...dateFilter },
+        }),
+        prisma.aIChatMessage.groupBy({
+          by: ["role"],
+          _count: true,
+          where: {
+            session: { userId: m.id },
+            ...dateFilter,
+          },
+        }),
+      ]);
       return {
         userId: m.id,
+        sessions: sessionCount,
         userMessages: counts.find((c) => c.role === "user")?._count ?? 0,
         assistantMessages: counts.find((c) => c.role === "assistant")?._count ?? 0,
       };
@@ -43,7 +66,7 @@ export async function GET() {
     return {
       ...m,
       aiChatStats: {
-        sessions: m._count.aiChatSessions,
+        sessions: stats?.sessions ?? 0,
         questions: stats?.userMessages ?? 0,
         answers: stats?.assistantMessages ?? 0,
       },
