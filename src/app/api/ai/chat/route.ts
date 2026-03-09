@@ -11,6 +11,9 @@ import {
   goalDraftSchema,
 } from "@/lib/ai-tools";
 
+// Vercel 서버리스 함수 타임아웃 연장 (웹 검색 시 내부 API 호출에 시간 필요)
+export const maxDuration = 60;
+
 // Anthropic API 직접 호출 웹 검색 도구 (별도 API 키 불필요)
 function createWebSearchTool(anthropicApiKey: string) {
   return tool({
@@ -21,6 +24,10 @@ function createWebSearchTool(anthropicApiKey: string) {
     }),
     execute: async ({ query }) => {
       try {
+        // 25초 타임아웃 설정 (무한 대기 방지)
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25000);
+
         const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
@@ -30,23 +37,26 @@ function createWebSearchTool(anthropicApiKey: string) {
             "anthropic-beta": "web-search-2025-03-05",
           },
           body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 1024,
+            model: "claude-3-5-haiku-20241022",
+            max_tokens: 512,
             tools: [
               {
                 type: "web_search_20250305",
                 name: "web_search",
-                max_uses: 3,
+                max_uses: 1,
               },
             ],
             messages: [
               {
                 role: "user",
-                content: `다음 질문에 대해 웹 검색을 하고 결과를 한국어로 정리해주세요. 출처 URL도 포함해주세요.\n\n질문: ${query}`,
+                content: `다음 질문에 대해 웹 검색을 하고 결과를 한국어로 간결하게 정리해주세요. 출처 URL도 포함해주세요.\n\n질문: ${query}`,
               },
             ],
           }),
+          signal: controller.signal,
         });
+
+        clearTimeout(timeout);
 
         if (!res.ok) {
           const errText = await res.text();
@@ -64,10 +74,12 @@ function createWebSearchTool(anthropicApiKey: string) {
 
         return { answer };
       } catch (error: any) {
+        const msg =
+          error.name === "AbortError"
+            ? "웹 검색 시간이 초과되었습니다. 질문을 더 구체적으로 해주세요."
+            : `웹 검색 중 오류가 발생했습니다: ${error.message}`;
         console.error("[Web Search] Error:", error.message);
-        return {
-          answer: `웹 검색 중 오류가 발생했습니다: ${error.message}`,
-        };
+        return { answer: msg };
       }
     },
   });
