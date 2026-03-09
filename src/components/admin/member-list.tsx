@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,12 +24,15 @@ interface Member {
 }
 
 interface MemberListProps {
-  members: Member[];
+  initialMembers?: Member[];
+  members?: Member[];
   onMemberRemoved?: () => void;
 }
 
-export function MemberList({ members, onMemberRemoved }: MemberListProps) {
+export function MemberList({ initialMembers, members: externalMembers, onMemberRemoved }: MemberListProps) {
+  const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const members = externalMembers || initialMembers || [];
 
   const handleDelete = async (member: Member) => {
     const confirmed = confirm(
@@ -51,7 +55,11 @@ export function MemberList({ members, onMemberRemoved }: MemberListProps) {
       }
 
       toast({ title: `${member.name || member.email} 팀원이 삭제되었습니다.` });
-      onMemberRemoved?.();
+      if (onMemberRemoved) {
+        onMemberRemoved();
+      } else {
+        router.refresh();
+      }
     } catch {
       toast({ title: "삭제 중 오류가 발생했습니다.", variant: "destructive" });
     } finally {
