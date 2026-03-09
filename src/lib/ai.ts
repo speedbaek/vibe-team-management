@@ -93,9 +93,15 @@ export function buildSystemPrompt(context: {
 - 현재 분기: ${currentQuarter}
 
 ## 도구 사용 가이드라인:
-당신에게는 세 가지 도구가 있습니다:
+당신에게는 네 가지 도구가 있습니다:
 
-1. **create_daily_log_draft**: 일일 업무 기록 초안 생성
+1. **web_search**: 웹 검색
+   - 사용자가 최신 정보, 외부 자료, 기술 문서 등을 물어볼 때 사용
+   - "이거 검색해줘", "최신 트렌드 알려줘", "OO에 대해 찾아봐" 등의 요청에 사용
+   - 업무 관련 정보 검색, 기술 문제 해결, 시장 조사 등에 활용
+   - 검색 결과를 바탕으로 출처를 포함하여 정리해서 답변합니다
+
+2. **create_daily_log_draft**: 일일 업무 기록 초안 생성
    - "업무 정리해줘", "오늘 뭐했는지 정리", "일일 기록 도와줘" 등의 요청에 사용
    - 사용자가 오늘 한 일을 대화로 알려주면, 그 내용을 기반으로 초안 생성
    - 사용자가 구체적인 내용을 언급하지 않았다면, 먼저 "오늘 어떤 업무를 하셨나요?" 라고 물어봅니다
@@ -103,12 +109,12 @@ export function buildSystemPrompt(context: {
    - plannedTasks의 각 id는 고유한 uuid 형식 (예: "task-1", "task-2")으로 생성합니다
    - completedTasks는 plannedTasks 중 completed=true인 것과 동일하게 만듭니다
 
-2. **create_weekly_review_draft**: 주간 회고 초안 생성
+3. **create_weekly_review_draft**: 주간 회고 초안 생성
    - "주간 회고 써줘", "이번 주 정리", "회고 도와줘" 등의 요청에 사용
    - 최근 일일 기록들을 참고하여 성과(achievements)를 자동으로 채웁니다
    - weekStart는 "${weekStart}"를 사용합니다
 
-3. **create_goal_draft**: 목표 초안 생성
+4. **create_goal_draft**: 목표 초안 생성
    - "목표 세워줘", "이번 분기 목표" 등의 요청에 사용
    - quarter는 "${currentQuarter}"를 사용합니다
    - 할 일 목록은 구체적이고 실행 가능한 항목으로 작성합니다

@@ -1,6 +1,7 @@
 import "@/lib/env";
 import { streamText, tool } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildSystemPrompt, buildContext } from "@/lib/ai";
@@ -9,6 +10,44 @@ import {
   weeklyReviewDraftSchema,
   goalDraftSchema,
 } from "@/lib/ai-tools";
+
+// 웹 검색 도구 (Tavily API - 무료 1000회/월)
+const webSearchTool = process.env.TAVILY_API_KEY
+  ? tool({
+      description:
+        "웹에서 최신 정보를 검색합니다. 사용자가 외부 정보, 최신 뉴스, 기술 문서, 트렌드 등을 물어볼 때 사용합니다.",
+      parameters: z.object({
+        query: z.string().describe("검색할 내용 (한국어 또는 영어)"),
+      }),
+      execute: async ({ query }) => {
+        try {
+          const res = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              api_key: process.env.TAVILY_API_KEY,
+              query,
+              search_depth: "basic",
+              max_results: 5,
+              include_answer: true,
+            }),
+          });
+          if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+          const data = await res.json();
+          return {
+            answer: data.answer || "",
+            results: (data.results || []).map((r: any) => ({
+              title: r.title,
+              url: r.url,
+              content: r.content?.substring(0, 300) || "",
+            })),
+          };
+        } catch (error: any) {
+          return { error: `검색 실패: ${error.message}`, results: [] };
+        }
+      },
+    })
+  : null;
 
 export async function POST(req: Request) {
   try {
@@ -48,40 +87,48 @@ export async function POST(req: Request) {
     const context = await buildContext(session.user.id, currentSessionId);
     const anthropic = createAnthropic({ apiKey });
 
+    // 도구 구성 (웹 검색은 API 키가 있을 때만 포함)
+    const tools: Record<string, any> = {
+      create_daily_log_draft: tool({
+        description:
+          "사용자의 일일 업무 기록 초안을 생성합니다. 사용자가 오늘 한 일이나 할 일을 정리해달라고 할 때 사용합니다.",
+        parameters: dailyLogDraftSchema,
+        execute: async (args) => ({
+          type: "daily_log_draft" as const,
+          draft: args,
+        }),
+      }),
+      create_weekly_review_draft: tool({
+        description:
+          "사용자의 주간 회고 초안을 생성합니다. 사용자가 주간 회고 작성을 도와달라고 할 때 사용합니다.",
+        parameters: weeklyReviewDraftSchema,
+        execute: async (args) => ({
+          type: "weekly_review_draft" as const,
+          draft: args,
+        }),
+      }),
+      create_goal_draft: tool({
+        description:
+          "사용자의 OKR 목표 초안을 생성합니다. 사용자가 목표 설정을 도와달라고 할 때 사용합니다.",
+        parameters: goalDraftSchema,
+        execute: async (args) => ({
+          type: "goal_draft" as const,
+          draft: args,
+        }),
+      }),
+    };
+
+    // 웹 검색 도구 추가 (Tavily API 키가 있을 때만)
+    if (webSearchTool) {
+      tools.web_search = webSearchTool;
+    }
+
     const result = streamText({
       model: anthropic("claude-sonnet-4-20250514"),
       system: buildSystemPrompt(context),
       messages,
-      tools: {
-        create_daily_log_draft: tool({
-          description:
-            "사용자의 일일 업무 기록 초안을 생성합니다. 사용자가 오늘 한 일이나 할 일을 정리해달라고 할 때 사용합니다.",
-          parameters: dailyLogDraftSchema,
-          execute: async (args) => ({
-            type: "daily_log_draft" as const,
-            draft: args,
-          }),
-        }),
-        create_weekly_review_draft: tool({
-          description:
-            "사용자의 주간 회고 초안을 생성합니다. 사용자가 주간 회고 작성을 도와달라고 할 때 사용합니다.",
-          parameters: weeklyReviewDraftSchema,
-          execute: async (args) => ({
-            type: "weekly_review_draft" as const,
-            draft: args,
-          }),
-        }),
-        create_goal_draft: tool({
-          description:
-            "사용자의 OKR 목표 초안을 생성합니다. 사용자가 목표 설정을 도와달라고 할 때 사용합니다.",
-          parameters: goalDraftSchema,
-          execute: async (args) => ({
-            type: "goal_draft" as const,
-            draft: args,
-          }),
-        }),
-      },
-      maxSteps: 2,
+      tools,
+      maxSteps: 5,
       onFinish: async ({ text }) => {
         // Save assistant response to DB
         if (text) {
