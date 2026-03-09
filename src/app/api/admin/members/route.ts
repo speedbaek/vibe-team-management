@@ -92,3 +92,32 @@ export async function PUT(req: NextRequest) {
 
   return NextResponse.json({ data: user });
 }
+
+export async function DELETE(req: NextRequest) {
+  const { error, session } = await requireAdmin();
+  if (error) return error;
+
+  const { userId } = await req.json();
+  if (!userId) {
+    return NextResponse.json({ error: "userId is required" }, { status: 400 });
+  }
+
+  // 자기 자신은 삭제 불가
+  if (userId === session!.user.id) {
+    return NextResponse.json(
+      { error: "자기 자신은 삭제할 수 없습니다." },
+      { status: 400 }
+    );
+  }
+
+  // 대상 사용자 존재 여부 확인
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target) {
+    return NextResponse.json({ error: "사용자를 찾을 수 없습니다." }, { status: 404 });
+  }
+
+  // Cascade 삭제: 관련 데이터(일일기록, 주간회고, 목표, AI채팅 등) 자동 삭제
+  await prisma.user.delete({ where: { id: userId } });
+
+  return NextResponse.json({ success: true });
+}

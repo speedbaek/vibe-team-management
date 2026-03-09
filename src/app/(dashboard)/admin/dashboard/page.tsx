@@ -97,7 +97,7 @@ export default function AdminDashboardPage() {
           {loading ? (
             <p className="text-muted-foreground">불러오는 중...</p>
           ) : (
-            <MemberList members={members} />
+            <MemberList members={members} onMemberRemoved={() => fetchMembers(activeFilter?.from, activeFilter?.to)} />
           )}
         </div>
       </div>
