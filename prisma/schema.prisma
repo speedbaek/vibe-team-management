@@ -71,6 +71,8 @@ model User {
   goals         Goal[]
   aiChatSessions AIChatSession[]
   invitations   Invitation[] @relation("InvitedBy")
+  generatedReports TeamReport[] @relation("ReportGenerator")
+  targetReports    TeamReport[] @relation("ReportTarget")
 }
 
 model DailyLog {
@@ -168,6 +170,23 @@ model AIChatMessage {
   session AIChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
+}
+
+model TeamReport {
+  id          String   @id @default(cuid())
+  type        String   // "team-weekly" or "member-weekly"
+  content     String   @db.Text
+  weekStart   DateTime @db.Date
+  generatedBy String   // admin userId who generated
+  targetUserId String? // for member-weekly reports
+  createdAt   DateTime @default(now())
+
+  generator   User  @relation("ReportGenerator", fields: [generatedBy], references: [id], onDelete: Cascade)
+  targetUser  User? @relation("ReportTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([weekStart])
+  @@index([generatedBy])
 }
 
 enum InvitationStatus {

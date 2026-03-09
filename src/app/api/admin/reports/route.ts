@@ -4,11 +4,40 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(req: NextRequest) {
+// 저장된 리포트 목록 조회
+export async function GET(req: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
 
+  const { searchParams } = new URL(req.url);
+  const type = searchParams.get("type") || "team-weekly";
+
+  const reports = await prisma.teamReport.findMany({
+    where: { type },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    include: {
+      generator: { select: { name: true } },
+      targetUser: { select: { name: true } },
+    },
+  });
+
+  return NextResponse.json({ data: reports });
+}
+
+// 리포트 생성 + DB 저장
+export async function POST(req: NextRequest) {
+  const { error, session } = await requireAdmin();
+  if (error) return error;
+
   const { type, userId, weekStart } = await req.json();
+
+  // 이번 주 월요일 계산
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  const weekStartDate = weekStart ? new Date(weekStart) : monday;
 
   if (type === "member-weekly" && userId) {
     const startDate = weekStart
@@ -47,6 +76,17 @@ Goals: ${JSON.stringify(goals)}
 Weekly Review: ${JSON.stringify(review)}`,
     });
 
+    // DB에 저장
+    await prisma.teamReport.create({
+      data: {
+        type: "member-weekly",
+        content: text,
+        weekStart: weekStartDate,
+        generatedBy: session!.user.id,
+        targetUserId: userId,
+      },
+    });
+
     return NextResponse.json({ data: { report: text } });
   }
 
@@ -77,6 +117,16 @@ Highlight: team achievements, areas of concern, and recommendations.
 Keep it under 300 words. Respond in Korean.
 
 Team Data: ${JSON.stringify(members)}`,
+    });
+
+    // DB에 저장
+    await prisma.teamReport.create({
+      data: {
+        type: "team-weekly",
+        content: text,
+        weekStart: weekStartDate,
+        generatedBy: session!.user.id,
+      },
     });
 
     return NextResponse.json({ data: { report: text } });
