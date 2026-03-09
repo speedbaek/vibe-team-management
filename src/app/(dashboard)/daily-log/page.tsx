@@ -5,6 +5,7 @@ import { DailyLogForm } from "@/components/daily-log/daily-log-form";
 import { DailyLogCalendar } from "@/components/daily-log/daily-log-calendar";
 import { DailyLogHistory } from "@/components/daily-log/daily-log-history";
 import { useDailyLogs } from "@/hooks/use-daily-logs";
+import { toast } from "@/hooks/use-toast";
 
 function getToday() {
   return new Date().toISOString().split("T")[0];
@@ -18,6 +19,7 @@ function getCurrentMonth() {
 export default function DailyLogPage() {
   const [selectedDate, setSelectedDate] = useState(getToday());
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
+  const [formKey, setFormKey] = useState(0);
   const { logs, refetch } = useDailyLogs(currentMonth);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -28,7 +30,29 @@ export default function DailyLogPage() {
 
   const handleEditFromHistory = (date: string) => {
     setSelectedDate(date);
+    // 같은 날짜여도 폼을 강제 리렌더링
+    setFormKey((k) => k + 1);
     formRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleDelete = async (logId: string) => {
+    if (!confirm("이 일일기록을 삭제하시겠습니까?")) return;
+
+    try {
+      const res = await fetch(`/api/daily-logs/${logId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast({ title: "삭제 완료", description: "일일기록이 삭제되었습니다." });
+      refetch();
+      setFormKey((k) => k + 1);
+    } catch {
+      toast({
+        title: "오류",
+        description: "삭제에 실패했습니다.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -37,7 +61,7 @@ export default function DailyLogPage() {
       <div ref={formRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <DailyLogForm
-            key={selectedDate}
+            key={`${selectedDate}-${formKey}`}
             date={selectedDate}
             initialData={
               selectedLog
@@ -66,6 +90,7 @@ export default function DailyLogPage() {
         <DailyLogHistory
           logs={logs as any}
           onEdit={handleEditFromHistory}
+          onDelete={handleDelete}
           selectedDate={selectedDate}
         />
       </div>

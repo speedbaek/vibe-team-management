@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 interface Task {
   id: string;
@@ -21,12 +21,14 @@ interface DailyLogEntry {
 interface DailyLogHistoryProps {
   logs: DailyLogEntry[];
   onEdit: (date: string) => void;
+  onDelete: (logId: string) => void;
   selectedDate: string;
 }
 
 export function DailyLogHistory({
   logs,
   onEdit,
+  onDelete,
   selectedDate,
 }: DailyLogHistoryProps) {
   if (logs.length === 0) {
@@ -91,15 +93,26 @@ export function DailyLogHistory({
                     </span>
                   )}
                 </div>
-                <Button
-                  variant={isSelected ? "default" : "ghost"}
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => onEdit(dateKey)}
-                >
-                  <Pencil className="h-3 w-3 mr-1" />
-                  수정
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant={isSelected ? "default" : "ghost"}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => onEdit(dateKey)}
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    수정
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                    onClick={() => onDelete(log.id)}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    삭제
+                  </Button>
+                </div>
               </div>
 
               {tasks.length > 0 && (
