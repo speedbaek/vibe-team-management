@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { DailyLogForm } from "@/components/daily-log/daily-log-form";
 import { DailyLogCalendar } from "@/components/daily-log/daily-log-calendar";
+import { DailyLogHistory } from "@/components/daily-log/daily-log-history";
 import { useDailyLogs } from "@/hooks/use-daily-logs";
 
 function getToday() {
@@ -18,16 +19,22 @@ export default function DailyLogPage() {
   const [selectedDate, setSelectedDate] = useState(getToday());
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
   const { logs, refetch } = useDailyLogs(currentMonth);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const selectedLog = logs.find((l) => {
     const logDate = new Date(l.date).toISOString().split("T")[0];
     return logDate === selectedDate;
   });
 
+  const handleEditFromHistory = (date: string) => {
+    setSelectedDate(date);
+    formRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
     <div className="max-w-5xl mx-auto">
       <h2 className="text-2xl font-bold mb-6">일일 업무 기록</h2>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div ref={formRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <DailyLogForm
             key={selectedDate}
@@ -53,6 +60,14 @@ export default function DailyLogPage() {
             onMonthChange={setCurrentMonth}
           />
         </div>
+      </div>
+      {/* 일일기록 히스토리 */}
+      <div className="mt-6">
+        <DailyLogHistory
+          logs={logs as any}
+          onEdit={handleEditFromHistory}
+          selectedDate={selectedDate}
+        />
       </div>
     </div>
   );

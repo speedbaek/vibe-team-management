@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -29,8 +29,11 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
   const [tasks, setTasks] = useState<Task[]>(initialData?.plannedTasks || []);
   const [blockers, setBlockers] = useState(initialData?.blockers || "");
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(!!initialData);
+  const isExisting = !!initialData;
 
   const addTask = () => {
+    setSaved(false);
     setTasks([
       ...tasks,
       { id: crypto.randomUUID(), text: "", completed: false },
@@ -38,16 +41,19 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
   };
 
   const toggleTask = (id: string) => {
+    setSaved(false);
     setTasks(
       tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
     );
   };
 
   const updateTask = (id: string, text: string) => {
+    setSaved(false);
     setTasks(tasks.map((t) => (t.id === id ? { ...t, text } : t)));
   };
 
   const deleteTask = (id: string) => {
+    setSaved(false);
     setTasks(tasks.filter((t) => t.id !== id));
   };
 
@@ -70,6 +76,7 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
       });
 
       if (!res.ok) throw new Error("Failed to save");
+      setSaved(true);
       toast({ title: "저장 완료!", description: "일일 기록이 저장되었습니다." });
       onSaved();
     } catch {
@@ -86,13 +93,26 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">
-          {new Date(date + "T00:00:00").toLocaleDateString("ko-KR", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            weekday: "long",
-          })}
+        <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
+          <span>
+            {new Date(date + "T00:00:00").toLocaleDateString("ko-KR", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              weekday: "long",
+            })}
+          </span>
+          {saved && (
+            <span className="inline-flex items-center gap-1 text-xs font-normal text-green-600 bg-green-50 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full">
+              <Check className="h-3 w-3" />
+              저장됨
+            </span>
+          )}
+          {isExisting && !saved && (
+            <span className="text-xs font-normal text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full">
+              수정 중
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -124,7 +144,10 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
           <Label className="text-base font-semibold">하루 정리 / 고민</Label>
           <Textarea
             value={blockers}
-            onChange={(e) => setBlockers(e.target.value)}
+            onChange={(e) => {
+              setSaved(false);
+              setBlockers(e.target.value);
+            }}
             placeholder="오늘 하루를 정리하거나 고민이 있다면 적어주세요."
             rows={3}
           />
