@@ -77,6 +77,8 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
 
       if (!res.ok) throw new Error("Failed to save");
       setSaved(true);
+      setTasks([]);
+      setBlockers("");
       toast({ title: "저장 완료!", description: "일일 기록이 저장되었습니다." });
       onSaved();
     } catch {
