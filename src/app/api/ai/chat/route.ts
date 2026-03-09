@@ -14,72 +14,92 @@ import {
 // Vercel 서버리스 함수 타임아웃 연장 (웹 검색 시 내부 API 호출에 시간 필요)
 export const maxDuration = 60;
 
-// Anthropic API 직접 호출 웹 검색 도구 (별도 API 키 불필요)
+// Anthropic API 직접 호출 웹 검색 (Rate Limit 자동 재시도 포함)
+async function callWebSearchAPI(
+  apiKey: string,
+  query: string,
+  retryCount = 0
+): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "web-search-2025-03-05",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 512,
+        tools: [
+          {
+            type: "web_search_20250305",
+            name: "web_search",
+            max_uses: 1,
+          },
+        ],
+        messages: [
+          {
+            role: "user",
+            content: `다음 질문에 대해 웹 검색을 하고 결과를 한국어로 간결하게 정리해주세요. 출처 URL도 포함해주세요.\n\n질문: ${query}`,
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    // Rate Limit (429) → 3초 대기 후 1회 재시도
+    if (res.status === 429 && retryCount < 1) {
+      console.log("[Web Search] Rate limited, retrying in 3s...");
+      await new Promise((r) => setTimeout(r, 3000));
+      return callWebSearchAPI(apiKey, query, retryCount + 1);
+    }
+
+    if (!res.ok) {
+      const errText = await res.text();
+      if (res.status === 429) {
+        return "API 사용량 제한에 걸렸습니다. 잠시 후 다시 시도해주세요.";
+      }
+      throw new Error(`API ${res.status}: ${errText.substring(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const textBlocks = data.content?.filter((b: any) => b.type === "text");
+    return (
+      textBlocks?.map((b: any) => b.text).join("\n") ||
+      "검색 결과를 가져오지 못했습니다."
+    );
+  } catch (error: any) {
+    clearTimeout(timeout);
+    if (error.name === "AbortError") {
+      return "웹 검색 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.";
+    }
+    throw error;
+  }
+}
+
 function createWebSearchTool(anthropicApiKey: string) {
   return tool({
     description:
-      "웹에서 최신 정보를 검색합니다. 사용자가 외부 정보, 최신 뉴스, 기술 문서, 트렌드, 시장 조사 등을 물어볼 때 사용합니다.",
+      "웹에서 최신 정보를 검색합니다. 사용자가 외부 정보나 최신 뉴스를 물어볼 때만 사용합니다. 이전 대화에서 이미 검색한 내용의 후속 질문에는 사용하지 마세요.",
     parameters: z.object({
       query: z.string().describe("검색할 내용 (한국어 또는 영어)"),
     }),
     execute: async ({ query }) => {
       try {
-        // 25초 타임아웃 설정 (무한 대기 방지)
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 25000);
-
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": anthropicApiKey,
-            "anthropic-version": "2023-06-01",
-            "anthropic-beta": "web-search-2025-03-05",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 512,
-            tools: [
-              {
-                type: "web_search_20250305",
-                name: "web_search",
-                max_uses: 1,
-              },
-            ],
-            messages: [
-              {
-                role: "user",
-                content: `다음 질문에 대해 웹 검색을 하고 결과를 한국어로 간결하게 정리해주세요. 출처 URL도 포함해주세요.\n\n질문: ${query}`,
-              },
-            ],
-          }),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeout);
-
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`API ${res.status}: ${errText.substring(0, 200)}`);
-        }
-
-        const data = await res.json();
-        // 텍스트 블록 추출
-        const textBlocks = data.content?.filter(
-          (b: any) => b.type === "text"
-        );
-        const answer =
-          textBlocks?.map((b: any) => b.text).join("\n") ||
-          "검색 결과를 가져오지 못했습니다.";
-
+        const answer = await callWebSearchAPI(anthropicApiKey, query);
         return { answer };
       } catch (error: any) {
-        const msg =
-          error.name === "AbortError"
-            ? "웹 검색 시간이 초과되었습니다. 질문을 더 구체적으로 해주세요."
-            : `웹 검색 중 오류가 발생했습니다: ${error.message}`;
         console.error("[Web Search] Error:", error.message);
-        return { answer: msg };
+        return {
+          answer: `웹 검색 중 오류가 발생했습니다: ${error.message}`,
+        };
       }
     },
   });
