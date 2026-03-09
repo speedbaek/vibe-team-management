@@ -44,9 +44,9 @@ export async function POST(req: Request) {
       });
     }
 
-    const context = await buildContext(session.user.id);
-    const anthropic = createAnthropic({ apiKey });
     const currentSessionId = chatSession.id;
+    const context = await buildContext(session.user.id, currentSessionId);
+    const anthropic = createAnthropic({ apiKey });
 
     const result = streamText({
       model: anthropic("claude-sonnet-4-20250514"),

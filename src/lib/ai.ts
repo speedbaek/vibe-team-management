@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
-export async function buildContext(userId: string) {
-  const [recentLogs, currentGoals, recentReview, user, chatSessionCount] =
+export async function buildContext(userId: string, currentSessionId?: string) {
+  const [recentLogs, currentGoals, recentReview, user, chatSessionCount, recentChatHistory] =
     await Promise.all([
       prisma.dailyLog.findMany({
         where: { userId },
@@ -23,11 +23,30 @@ export async function buildContext(userId: string) {
       prisma.aIChatSession.count({
         where: { userId },
       }),
+      // 이전 대화 기록 로드 (현재 세션 제외, 최근 30개 메시지)
+      prisma.aIChatMessage.findMany({
+        where: {
+          session: {
+            userId,
+            ...(currentSessionId ? { id: { not: currentSessionId } } : {}),
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: {
+          role: true,
+          content: true,
+          createdAt: true,
+          session: {
+            select: { id: true, title: true, createdAt: true },
+          },
+        },
+      }),
     ]);
 
   const isFirstTime = chatSessionCount === 0;
 
-  return { recentLogs, currentGoals, recentReview, user, isFirstTime };
+  return { recentLogs, currentGoals, recentReview, user, isFirstTime, recentChatHistory };
 }
 
 export function buildSystemPrompt(context: {
@@ -36,6 +55,7 @@ export function buildSystemPrompt(context: {
   recentReview: any;
   user: any;
   isFirstTime: boolean;
+  recentChatHistory: any[];
 }) {
   const today = new Date().toISOString().split("T")[0];
   const dayOfWeek = new Date().getDay();
@@ -140,6 +160,39 @@ ${
 도움 필요: ${context.recentReview.helpNeeded || "미작성"}
 다음 주 계획: ${context.recentReview.nextWeekPlan}`
     : "아직 주간 회고가 없습니다."
+}
+
+${
+  context.recentChatHistory && context.recentChatHistory.length > 0
+    ? (() => {
+        // 세션별로 그룹화 (시간 역순 → 시간순으로 뒤집기)
+        const reversed = [...context.recentChatHistory].reverse();
+        const sessionMap = new Map<string, { title: string; date: string; messages: { role: string; content: string }[] }>();
+        for (const msg of reversed) {
+          const sid = msg.session.id;
+          if (!sessionMap.has(sid)) {
+            sessionMap.set(sid, {
+              title: msg.session.title || "대화",
+              date: new Date(msg.session.createdAt).toISOString().split("T")[0],
+              messages: [],
+            });
+          }
+          sessionMap.get(sid)!.messages.push({
+            role: msg.role,
+            content: msg.content.length > 200 ? msg.content.substring(0, 200) + "..." : msg.content,
+          });
+        }
+        const sessions = Array.from(sessionMap.values());
+        return `\n## 이전 대화 기록 (최근 세션):
+[중요: 아래는 이 사용자와 이전에 나누었던 대화 내용입니다. 이 내용을 기억하고 참고하여 코칭의 연속성을 유지해주세요.]
+${sessions
+  .map(
+    (s) => `\n### 세션: ${s.title} (${s.date})
+${s.messages.map((m) => `${m.role === "user" ? "사용자" : "코치"}: ${m.content}`).join("\n")}`
+  )
+  .join("\n")}`;
+      })()
+    : "\n## 이전 대화 기록:\n이전 대화 기록이 없습니다."
 }
 
 ${!hasLogToday ? `\n[참고: 사용자가 아직 오늘의 일일 기록을 작성하지 않았습니다. 적절한 시점에 부드럽게 제안해주세요.]` : ""}
