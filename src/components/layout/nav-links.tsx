@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Users,
   UserPlus,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,7 @@ const memberLinks = [
 
 const adminLinks = [
   { href: "/admin/dashboard", label: "팀 대시보드", icon: LayoutDashboard },
+  { href: "/admin/records", label: "팀원 기록", icon: ClipboardList },
   { href: "/admin/members", label: "팀원 관리", icon: Users },
   { href: "/admin/invite", label: "초대", icon: UserPlus },
 ];
