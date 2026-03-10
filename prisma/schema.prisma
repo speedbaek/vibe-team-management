@@ -189,6 +189,16 @@ model TeamReport {
   @@index([generatedBy])
 }
 
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique  // e.g. "ai-coach-prompt"
+  value     String   @db.Text
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+}
+
 enum InvitationStatus {
   PENDING
   ACCEPTED

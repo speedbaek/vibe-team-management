@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { MemberList } from "@/components/admin/member-list";
 import { TeamReport } from "@/components/admin/team-report";
+import { AIPromptSettings } from "@/components/admin/ai-prompt-settings";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -62,6 +63,7 @@ export default function AdminDashboardPage() {
       <h2 className="text-2xl font-bold mb-6">팀 대시보드</h2>
       <div className="space-y-6">
         <TeamReport type="team-weekly" />
+        <AIPromptSettings />
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold">팀원 현황</h3>

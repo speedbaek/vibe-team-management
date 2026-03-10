@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 export async function buildContext(userId: string, currentSessionId?: string) {
-  const [recentLogs, currentGoals, recentReview, user, chatSessionCount, recentChatHistory] =
+  const [recentLogs, currentGoals, recentReview, user, chatSessionCount, recentChatHistory, customPromptSetting] =
     await Promise.all([
       prisma.dailyLog.findMany({
         where: { userId },
@@ -42,11 +42,16 @@ export async function buildContext(userId: string, currentSessionId?: string) {
           },
         },
       }),
+      prisma.systemSetting.findUnique({
+        where: { key: "ai-coach-prompt" },
+        select: { value: true },
+      }),
     ]);
 
   const isFirstTime = chatSessionCount === 0;
+  const customPrompt = customPromptSetting?.value || "";
 
-  return { recentLogs, currentGoals, recentReview, user, isFirstTime, recentChatHistory };
+  return { recentLogs, currentGoals, recentReview, user, isFirstTime, recentChatHistory, customPrompt };
 }
 
 export function buildSystemPrompt(context: {
@@ -56,6 +61,7 @@ export function buildSystemPrompt(context: {
   user: any;
   isFirstTime: boolean;
   recentChatHistory: any[];
+  customPrompt: string;
 }) {
   const today = new Date().toISOString().split("T")[0];
   const dayOfWeek = new Date().getDay();
@@ -219,5 +225,14 @@ ${
 }
 
 ## 도움말 대응:
-사용자가 "도움말", "사용법", "뭘 할 수 있어", "기능 알려줘" 등의 키워드를 입력하면, 위 3가지 핵심 기능과 사용 예시를 다시 안내해주세요.`;
+사용자가 "도움말", "사용법", "뭘 할 수 있어", "기능 알려줘" 등의 키워드를 입력하면, 위 3가지 핵심 기능과 사용 예시를 다시 안내해주세요.${
+  context.customPrompt
+    ? `
+
+## 관리자 커스텀 지침 (최우선 적용):
+아래는 팀 관리자가 설정한 추가 지침입니다. 위의 기본 가이드라인과 함께 반드시 따라주세요.
+
+${context.customPrompt}`
+    : ""
+}`;
 }
