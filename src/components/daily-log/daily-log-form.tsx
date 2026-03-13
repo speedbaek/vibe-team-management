@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Check } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Plus, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -30,37 +30,26 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
   const [blockers, setBlockers] = useState(initialData?.blockers || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(!!initialData);
-  const isExisting = !!initialData;
+  const [dirty, setDirty] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tasksRef = useRef(tasks);
+  const blockersRef = useRef(blockers);
 
-  const addTask = () => {
-    setSaved(false);
-    setTasks([
-      ...tasks,
-      { id: crypto.randomUUID(), text: "", completed: false },
-    ]);
-  };
+  // refs를 최신 상태로 유지
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  useEffect(() => { blockersRef.current = blockers; }, [blockers]);
 
-  const toggleTask = (id: string) => {
-    setSaved(false);
-    setTasks(
-      tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
-    );
-  };
+  const saveToServer = useCallback(async () => {
+    const currentTasks = tasksRef.current;
+    const currentBlockers = blockersRef.current;
 
-  const updateTask = (id: string, text: string) => {
-    setSaved(false);
-    setTasks(tasks.map((t) => (t.id === id ? { ...t, text } : t)));
-  };
+    // 내용이 없으면 저장하지 않음
+    const hasContent = currentTasks.some((t) => t.text.trim()) || currentBlockers.trim();
+    if (!hasContent) return;
 
-  const deleteTask = (id: string) => {
-    setSaved(false);
-    setTasks(tasks.filter((t) => t.id !== id));
-  };
-
-  const handleSave = async () => {
     setSaving(true);
     try {
-      const completedTasks = tasks
+      const completedTasks = currentTasks
         .filter((t) => t.completed)
         .map((t) => ({ id: t.id, text: t.text }));
 
@@ -69,27 +58,80 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date,
-          plannedTasks: tasks,
+          plannedTasks: currentTasks,
           completedTasks,
-          blockers: blockers || undefined,
+          blockers: currentBlockers || undefined,
         }),
       });
 
       if (!res.ok) throw new Error("Failed to save");
       setSaved(true);
-      setTasks([]);
-      setBlockers("");
-      toast({ title: "저장 완료!", description: "일일 기록이 저장되었습니다." });
+      setDirty(false);
       onSaved();
     } catch {
       toast({
-        title: "오류",
-        description: "일일 기록 저장에 실패했습니다.",
+        title: "자동 저장 실패",
+        description: "잠시 후 다시 시도됩니다.",
         variant: "destructive",
       });
     } finally {
       setSaving(false);
     }
+  }, [date, onSaved]);
+
+  // dirty 상태 변경 시 debounce 자동저장
+  useEffect(() => {
+    if (!dirty) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      saveToServer();
+    }, 1500);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [dirty, tasks, blockers, saveToServer]);
+
+  // 페이지 이탈 시 미저장 내용 즉시 저장
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (dirty) {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        saveToServer();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [dirty, saveToServer]);
+
+  const markDirty = () => {
+    setSaved(false);
+    setDirty(true);
+  };
+
+  const addTask = () => {
+    const newTasks = [
+      ...tasks,
+      { id: crypto.randomUUID(), text: "", completed: false },
+    ];
+    setTasks(newTasks);
+    // 빈 할 일 추가만으로는 자동저장 안 함 (텍스트 입력 시 저장됨)
+  };
+
+  const toggleTask = (id: string) => {
+    setTasks(
+      tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+    );
+    markDirty();
+  };
+
+  const updateTask = (id: string, text: string) => {
+    setTasks(tasks.map((t) => (t.id === id ? { ...t, text } : t)));
+    markDirty();
+  };
+
+  const deleteTask = (id: string) => {
+    setTasks(tasks.filter((t) => t.id !== id));
+    markDirty();
   };
 
   return (
@@ -104,15 +146,21 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
               weekday: "long",
             })}
           </span>
-          {saved && (
+          {saving && (
+            <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground px-2 py-0.5 rounded-full">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              저장 중...
+            </span>
+          )}
+          {saved && !saving && (
             <span className="inline-flex items-center gap-1 text-xs font-normal text-green-600 bg-green-50 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full">
               <Check className="h-3 w-3" />
               저장됨
             </span>
           )}
-          {isExisting && !saved && (
-            <span className="text-xs font-normal text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full">
-              수정 중
+          {dirty && !saving && (
+            <span className="text-xs font-normal text-orange-600 bg-orange-50 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-0.5 rounded-full">
+              수정 중...
             </span>
           )}
         </CardTitle>
@@ -147,17 +195,13 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
           <Textarea
             value={blockers}
             onChange={(e) => {
-              setSaved(false);
               setBlockers(e.target.value);
+              markDirty();
             }}
             placeholder="오늘 하루를 정리하거나 고민이 있다면 적어주세요."
             rows={3}
           />
         </div>
-
-        <Button onClick={handleSave} disabled={saving} className="w-full">
-          {saving ? "저장 중..." : "저장하기"}
-        </Button>
       </CardContent>
     </Card>
   );

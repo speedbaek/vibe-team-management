@@ -41,6 +41,7 @@ export async function PUT(
     where: { id },
     data: {
       objective: body.objective ?? existing.objective,
+      quarter: body.quarter ?? existing.quarter,
       status: body.status ?? existing.status,
     },
     include: { keyResults: true },
