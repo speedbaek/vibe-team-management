@@ -185,22 +185,8 @@ export async function POST(req: Request) {
     };
 
     const result = streamText({
-      model: anthropic("claude-sonnet-4-20250514", {
-        cacheControl: true,
-      }),
-      system: [
-        {
-          type: "text",
-          text: getStaticSystemPrompt(),
-          experimental_providerMetadata: {
-            anthropic: { cacheControl: { type: "ephemeral" } },
-          },
-        },
-        {
-          type: "text",
-          text: getDynamicSystemPrompt(context),
-        },
-      ],
+      model: anthropic("claude-sonnet-4-20250514"),
+      system: getStaticSystemPrompt() + "\n\n" + getDynamicSystemPrompt(context),
       messages: trimMessages(messages),
       tools,
       maxSteps: 3,
