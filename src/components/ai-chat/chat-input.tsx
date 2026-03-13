@@ -11,9 +11,9 @@ interface ChatInputProps {
   onChange: (value: string) => void;
   onSubmit: () => void;
   isLoading: boolean;
-  imagePreview?: string | null;
+  imagePreviews?: string[];
   onImageSelect?: (file: File) => void;
-  onImageRemove?: () => void;
+  onImageRemove?: (index: number) => void;
 }
 
 export function ChatInput({
@@ -21,7 +21,7 @@ export function ChatInput({
   onChange,
   onSubmit,
   isLoading,
-  imagePreview,
+  imagePreviews = [],
   onImageSelect,
   onImageRemove,
 }: ChatInputProps) {
@@ -31,7 +31,7 @@ export function ChatInput({
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if ((value.trim() || imagePreview) && !isLoading) onSubmit();
+      if ((value.trim() || imagePreviews.length > 0) && !isLoading) onSubmit();
     }
   };
 
@@ -48,8 +48,10 @@ export function ChatInput({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) validateAndSelect(file);
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach((file) => validateAndSelect(file));
+    }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -69,8 +71,10 @@ export function ChatInput({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) validateAndSelect(file);
+    const files = e.dataTransfer.files;
+    if (files) {
+      Array.from(files).forEach((file) => validateAndSelect(file));
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -101,19 +105,23 @@ export function ChatInput({
           이미지를 여기에 놓으세요
         </div>
       )}
-      {imagePreview && !isDragging && (
-        <div className="mb-2 relative inline-block">
-          <img
-            src={imagePreview}
-            alt="첨부 이미지"
-            className="h-20 rounded-md border object-cover"
-          />
-          <button
-            onClick={onImageRemove}
-            className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
-          >
-            <X className="h-3 w-3" />
-          </button>
+      {imagePreviews.length > 0 && !isDragging && (
+        <div className="mb-2 flex gap-2 flex-wrap">
+          {imagePreviews.map((preview, index) => (
+            <div key={index} className="relative inline-block">
+              <img
+                src={preview}
+                alt={`첨부 이미지 ${index + 1}`}
+                className="h-20 rounded-md border object-cover"
+              />
+              <button
+                onClick={() => onImageRemove?.(index)}
+                className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
       <div className="flex gap-2 items-end">
@@ -121,6 +129,7 @@ export function ChatInput({
           ref={fileInputRef}
           type="file"
           accept="image/*"
+          multiple
           onChange={handleFileChange}
           className="hidden"
         />
@@ -145,7 +154,7 @@ export function ChatInput({
         />
         <Button
           onClick={onSubmit}
-          disabled={(!value.trim() && !imagePreview) || isLoading}
+          disabled={(!value.trim() && imagePreviews.length === 0) || isLoading}
           size="icon"
           className="shrink-0"
         >

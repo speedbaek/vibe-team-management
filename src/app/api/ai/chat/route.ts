@@ -4,7 +4,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { buildSystemPrompt, buildContext } from "@/lib/ai";
+import { buildContext, getStaticSystemPrompt, getDynamicSystemPrompt } from "@/lib/ai";
 import {
   dailyLogDraftSchema,
   weeklyReviewDraftSchema,
@@ -33,7 +33,7 @@ async function callWebSearchAPI(
         "anthropic-beta": "web-search-2025-03-05",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 512,
         tools: [
           {
@@ -103,6 +103,15 @@ function createWebSearchTool(anthropicApiKey: string) {
       }
     },
   });
+}
+
+/**
+ * 대화 히스토리 슬라이딩 윈도우
+ * 세션의 첫 메시지(의도 파악)를 보존하고, 최근 N-1개 메시지만 유지
+ */
+function trimMessages(messages: any[], maxCount = 10): any[] {
+  if (messages.length <= maxCount) return messages;
+  return [messages[0], ...messages.slice(-(maxCount - 1))];
 }
 
 export async function POST(req: Request) {
@@ -176,12 +185,34 @@ export async function POST(req: Request) {
     };
 
     const result = streamText({
-      model: anthropic("claude-sonnet-4-20250514"),
-      system: buildSystemPrompt(context),
-      messages,
+      model: anthropic("claude-sonnet-4-20250514", {
+        cacheControl: true,
+      }),
+      system: [
+        {
+          type: "text",
+          text: getStaticSystemPrompt(),
+          experimental_providerMetadata: {
+            anthropic: { cacheControl: { type: "ephemeral" } },
+          },
+        },
+        {
+          type: "text",
+          text: getDynamicSystemPrompt(context),
+        },
+      ],
+      messages: trimMessages(messages),
       tools,
-      maxSteps: 5,
-      onFinish: async ({ text }) => {
+      maxSteps: 3,
+      maxTokens: 1024,
+      onFinish: async ({ text, usage }) => {
+        // 토큰 사용량 로깅 (최적화 효과 모니터링용)
+        if (usage) {
+          console.log(
+            `[Token Usage] user=${session.user.id} session=${currentSessionId} ` +
+            `input=${usage.promptTokens} output=${usage.completionTokens} total=${usage.totalTokens}`
+          );
+        }
         // Save assistant response to DB
         if (text) {
           await prisma.aIChatMessage

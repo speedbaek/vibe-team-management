@@ -25,8 +25,8 @@ export function ChatInterface({
   isFirstTime = false,
 }: ChatInterfaceProps) {
   const [onboardingSent, setOnboardingSent] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   const {
     messages,
@@ -84,32 +84,46 @@ export function ChatInterface({
   );
 
   const handleImageSelect = (file: File) => {
-    setImageFile(file);
+    if (imageFiles.length >= 10) {
+      alert("이미지는 최대 10개까지 첨부할 수 있습니다.");
+      return;
+    }
+    setImageFiles((prev) => [...prev, file]);
     const reader = new FileReader();
     reader.onload = (e) => {
-      setImagePreview(e.target?.result as string);
+      setImagePreviews((prev) => [...prev, e.target?.result as string]);
     };
     reader.readAsDataURL(file);
   };
 
-  const handleImageRemove = () => {
-    setImageFile(null);
-    setImagePreview(null);
+  const handleImageRemove = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleFormSubmit = () => {
-    if (imageFile && imagePreview) {
-      handleSubmit(undefined, {
-        experimental_attachments: [
-          {
-            name: imageFile.name,
-            contentType: imageFile.type,
-            url: imagePreview,
-          },
-        ],
-      });
-      setImageFile(null);
-      setImagePreview(null);
+    if (imageFiles.length > 0 && imagePreviews.length > 0) {
+      const attachments = imageFiles.map((file, i) => ({
+        name: file.name,
+        contentType: file.type,
+        url: imagePreviews[i],
+      }));
+
+      if (!input.trim()) {
+        // 텍스트 없이 이미지만 전송: append 사용
+        append({
+          role: "user" as const,
+          content: "",
+          experimental_attachments: attachments,
+        });
+      } else {
+        // 텍스트 + 이미지: handleSubmit 사용
+        handleSubmit(undefined, {
+          experimental_attachments: attachments,
+        });
+      }
+      setImageFiles([]);
+      setImagePreviews([]);
     } else {
       handleSubmit();
     }
@@ -195,7 +209,7 @@ export function ChatInterface({
           }
           onSubmit={handleFormSubmit}
           isLoading={isLoading}
-          imagePreview={imagePreview}
+          imagePreviews={imagePreviews}
           onImageSelect={handleImageSelect}
           onImageRemove={handleImageRemove}
         />
