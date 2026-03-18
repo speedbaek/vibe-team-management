@@ -73,6 +73,8 @@ model User {
   invitations   Invitation[] @relation("InvitedBy")
   generatedReports TeamReport[] @relation("ReportGenerator")
   targetReports    TeamReport[] @relation("ReportTarget")
+  ideaPosts        IdeaPost[]
+  ideaComments     IdeaComment[]
 }
 
 model DailyLog {
@@ -187,6 +189,35 @@ model TeamReport {
   @@index([type])
   @@index([weekStart])
   @@index([generatedBy])
+}
+
+model IdeaPost {
+  id        String         @id @default(cuid())
+  userId    String
+  title     String
+  content   String         @db.Text
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments IdeaComment[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model IdeaComment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  post User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ideaPost IdeaPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([userId])
 }
 
 model SystemSetting {

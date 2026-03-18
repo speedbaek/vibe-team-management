@@ -11,6 +11,7 @@ import {
   Users,
   UserPlus,
   ClipboardList,
+  Lightbulb,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ const memberLinks = [
   { href: "/daily-log", label: "일일 기록", icon: CalendarDays },
   { href: "/weekly-review", label: "주간 회고", icon: FileText },
   { href: "/okr", label: "목표 (OKR)", icon: Target },
+  { href: "/ideas", label: "아이디어 수집함", icon: Lightbulb },
 ];
 
 const adminLinks = [
