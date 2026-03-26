@@ -11,7 +11,12 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
     include: {
       user: { select: { id: true, name: true, department: true, image: true } },
-      _count: { select: { comments: true } },
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          post: { select: { id: true, name: true, department: true, image: true } },
+        },
+      },
     },
   });
 

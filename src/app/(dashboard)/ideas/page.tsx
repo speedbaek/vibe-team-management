@@ -9,12 +9,9 @@ import { toast } from "@/hooks/use-toast";
 import {
   Lightbulb,
   Plus,
-  MessageCircle,
   Trash2,
   Send,
   X,
-  ChevronDown,
-  ChevronUp,
   User,
 } from "lucide-react";
 
@@ -38,8 +35,7 @@ interface Post {
   content: string;
   createdAt: string;
   user: PostUser;
-  _count: { comments: number };
-  comments?: Comment[];
+  comments: Comment[];
 }
 
 export default function IdeasPage() {
@@ -49,8 +45,7 @@ export default function IdeasPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
-  const [commentText, setCommentText] = useState("");
+  const [commentTexts, setCommentTexts] = useState<Record<string, string>>({});
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
@@ -111,53 +106,31 @@ export default function IdeasPage() {
       const res = await fetch(`/api/ideas/${postId}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       toast({ title: "게시글이 삭제되었습니다." });
-      if (expandedPostId === postId) setExpandedPostId(null);
       fetchPosts();
     } catch {
       toast({ title: "삭제 중 오류가 발생했습니다.", variant: "destructive" });
     }
   };
 
-  const toggleExpand = async (postId: string) => {
-    if (expandedPostId === postId) {
-      setExpandedPostId(null);
-      return;
-    }
-    setExpandedPostId(postId);
-    setCommentText("");
-    // 댓글 로드
-    try {
-      const res = await fetch(`/api/ideas/${postId}`);
-      if (!res.ok) throw new Error();
-      const { data } = await res.json();
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId ? { ...p, comments: data.comments } : p
-        )
-      );
-    } catch {
-      // silent
-    }
-  };
-
   const handleComment = async (postId: string) => {
-    if (!commentText.trim()) return;
+    const text = commentTexts[postId] || "";
+    if (!text.trim()) return;
     setCommentSubmitting(true);
     try {
       const res = await fetch(`/api/ideas/${postId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: commentText.trim() }),
+        body: JSON.stringify({ content: text.trim() }),
       });
       if (!res.ok) throw new Error();
-      setCommentText("");
+      setCommentTexts((prev) => ({ ...prev, [postId]: "" }));
       // 댓글 다시 로드
       const detailRes = await fetch(`/api/ideas/${postId}`);
       const { data } = await detailRes.json();
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
-            ? { ...p, comments: data.comments, _count: { comments: data.comments.length } }
+            ? { ...p, comments: data.comments }
             : p
         )
       );
@@ -179,7 +152,7 @@ export default function IdeasPage() {
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
-            ? { ...p, comments: data.comments, _count: { comments: data.comments.length } }
+            ? { ...p, comments: data.comments }
             : p
         )
       );
@@ -265,8 +238,6 @@ export default function IdeasPage() {
       ) : (
         <div className="space-y-4">
           {posts.map((post) => {
-            const isExpanded = expandedPostId === post.id;
-
             return (
               <Card key={post.id}>
                 <CardHeader className="pb-2">
@@ -298,88 +269,76 @@ export default function IdeasPage() {
                 <CardContent className="space-y-3">
                   <p className="text-sm whitespace-pre-wrap">{post.content}</p>
 
-                  {/* 댓글 토글 버튼 */}
-                  <button
-                    onClick={() => toggleExpand(post.id)}
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <MessageCircle className="h-3.5 w-3.5" />
-                    <span>댓글 {post._count.comments}개</span>
-                    {isExpanded ? (
-                      <ChevronUp className="h-3.5 w-3.5" />
-                    ) : (
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-
-                  {/* 댓글 영역 */}
-                  {isExpanded && (
-                    <div className="border-t pt-3 space-y-3">
-                      {post.comments && post.comments.length > 0 ? (
-                        <div className="space-y-2">
-                          {post.comments.map((comment) => (
-                            <div
-                              key={comment.id}
-                              className="flex items-start gap-2 bg-muted/50 rounded-lg p-2.5"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                  <span className="font-medium text-foreground">
-                                    {comment.post.name || "팀원"}
-                                  </span>
-                                  <span>·</span>
-                                  <span>{formatDate(comment.createdAt)}</span>
-                                </div>
-                                <p className="text-sm mt-0.5 whitespace-pre-wrap">
-                                  {comment.content}
-                                </p>
+                  {/* 댓글 영역 (항상 표시) */}
+                  <div className="border-t pt-3 space-y-3">
+                    {post.comments && post.comments.length > 0 && (
+                      <div className="space-y-2">
+                        {post.comments.map((comment) => (
+                          <div
+                            key={comment.id}
+                            className="flex items-start gap-2 bg-muted/50 rounded-lg p-2.5"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <span className="font-medium text-foreground">
+                                  {comment.post.name || "팀원"}
+                                </span>
+                                <span>·</span>
+                                <span>{formatDate(comment.createdAt)}</span>
                               </div>
-                              {canDelete(comment.post.id) && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleDeleteComment(comment.id, post.id)
-                                  }
-                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive shrink-0"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              )}
+                              <p className="text-sm mt-0.5 whitespace-pre-wrap">
+                                {comment.content}
+                              </p>
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">
-                          아직 댓글이 없습니다.
-                        </p>
-                      )}
-
-                      {/* 댓글 입력 */}
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="댓글을 입력하세요..."
-                          value={commentText}
-                          onChange={(e) => setCommentText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              handleComment(post.id);
-                            }
-                          }}
-                          className="h-8 text-sm"
-                        />
-                        <Button
-                          size="sm"
-                          className="h-8 px-3"
-                          onClick={() => handleComment(post.id)}
-                          disabled={commentSubmitting || !commentText.trim()}
-                        >
-                          <Send className="h-3.5 w-3.5" />
-                        </Button>
+                            {canDelete(comment.post.id) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  handleDeleteComment(comment.id, post.id)
+                                }
+                                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
                       </div>
+                    )}
+
+                    {/* 댓글 입력 */}
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="댓글을 입력하세요..."
+                        value={commentTexts[post.id] || ""}
+                        onChange={(e) =>
+                          setCommentTexts((prev) => ({
+                            ...prev,
+                            [post.id]: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleComment(post.id);
+                          }
+                        }}
+                        className="h-8 text-sm"
+                      />
+                      <Button
+                        size="sm"
+                        className="h-8 px-3"
+                        onClick={() => handleComment(post.id)}
+                        disabled={
+                          commentSubmitting ||
+                          !(commentTexts[post.id] || "").trim()
+                        }
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
             );
