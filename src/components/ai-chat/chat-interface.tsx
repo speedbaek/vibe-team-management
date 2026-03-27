@@ -2,6 +2,7 @@
 
 import { useChat, type Message } from "ai/react";
 import { useRef, useEffect, useCallback, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { QuickActions } from "./quick-actions";
@@ -10,6 +11,7 @@ import { WeeklyReviewDraftCard } from "./drafts/weekly-review-draft-card";
 import { GoalDraftCard } from "./drafts/goal-draft-card";
 import { DraftLoading } from "./drafts/draft-loading";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface ChatInterfaceProps {
   sessionId: string | null;
@@ -37,6 +39,7 @@ export function ChatInterface({
     error,
     append,
     setMessages,
+    reload,
   } = useChat({
     api: "/api/ai/chat",
     body: { sessionId },
@@ -187,8 +190,23 @@ export function ChatInterface({
           )}
           {error && (
             <div className="flex gap-3 mb-4">
-              <div className="bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm">
-                오류: {error.message}
+              <div className="bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm space-y-2">
+                <p>
+                  {error.message?.includes("timeout") || error.message?.includes("aborted")
+                    ? "응답 시간이 초과되었습니다. 다시 시도해주세요."
+                    : error.message?.includes("fetch")
+                      ? "네트워크 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요."
+                      : `오류가 발생했습니다: ${error.message || "알 수 없는 오류"}`}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => reload()}
+                  className="text-xs"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  다시 시도
+                </Button>
               </div>
             </div>
           )}

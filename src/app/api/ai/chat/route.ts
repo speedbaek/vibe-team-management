@@ -21,7 +21,7 @@ async function callWebSearchAPI(
   retryCount = 0
 ): Promise<string> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -56,8 +56,8 @@ async function callWebSearchAPI(
 
     // Rate Limit (429) → 3초 대기 후 1회 재시도
     if (res.status === 429 && retryCount < 1) {
-      console.log("[Web Search] Rate limited, retrying in 3s...");
-      await new Promise((r) => setTimeout(r, 3000));
+      console.log("[Web Search] Rate limited, retrying in 2s...");
+      await new Promise((r) => setTimeout(r, 2000));
       return callWebSearchAPI(apiKey, query, retryCount + 1);
     }
 
@@ -149,7 +149,22 @@ export async function POST(req: Request) {
     }
 
     const currentSessionId = chatSession.id;
-    const context = await buildContext(session.user.id, currentSessionId);
+    // DB 쿼리 실패 시에도 기본값으로 채팅은 동작하도록 함
+    let context;
+    try {
+      context = await buildContext(session.user.id, currentSessionId);
+    } catch (dbError: any) {
+      console.error("[AI Chat] DB context error, using defaults:", dbError.message);
+      context = {
+        recentLogs: [],
+        currentGoals: [],
+        recentReview: null,
+        user: { name: session.user.name || "팀원", department: null },
+        isFirstTime: false,
+        recentChatHistory: [],
+        customPrompt: "",
+      };
+    }
     const anthropic = createAnthropic({ apiKey });
 
     // 도구 구성 (웹 검색 포함 - 기존 Anthropic API 활용)
@@ -189,8 +204,8 @@ export async function POST(req: Request) {
       system: getStaticSystemPrompt() + "\n\n" + getDynamicSystemPrompt(context),
       messages: trimMessages(messages),
       tools,
-      maxSteps: 3,
-      maxTokens: 1024,
+      maxSteps: 2,
+      maxTokens: 800,
       onFinish: async ({ text, usage }) => {
         // 토큰 사용량 로깅 (최적화 효과 모니터링용)
         if (usage) {

@@ -23,7 +23,7 @@ export async function buildContext(userId: string, currentSessionId?: string) {
       prisma.aIChatSession.count({
         where: { userId },
       }),
-      // 이전 대화 기록 로드 (현재 세션 제외, 최근 5개 메시지)
+      // 이전 대화 기록 로드 (현재 세션 제외, 최근 3개 메시지 — 토큰 절약)
       prisma.aIChatMessage.findMany({
         where: {
           session: {
@@ -32,14 +32,11 @@ export async function buildContext(userId: string, currentSessionId?: string) {
           },
         },
         orderBy: { createdAt: "desc" },
-        take: 5,
+        take: 3,
         select: {
           role: true,
           content: true,
           createdAt: true,
-          session: {
-            select: { id: true, title: true, createdAt: true },
-          },
         },
       }),
       prisma.systemSetting.findUnique({

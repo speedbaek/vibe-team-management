@@ -32,24 +32,18 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
   const [saved, setSaved] = useState(!!initialData);
   const [dirty, setDirty] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tasksRef = useRef(tasks);
-  const blockersRef = useRef(blockers);
+  const mountedRef = useRef(true);
+  // 저장할 데이터의 스냅샷을 보관 (레이스 컨디션 방지)
+  const pendingSnapshotRef = useRef<{ tasks: Task[]; blockers: string; date: string } | null>(null);
 
-  // refs를 최신 상태로 유지
-  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
-  useEffect(() => { blockersRef.current = blockers; }, [blockers]);
-
-  const saveToServer = useCallback(async () => {
-    const currentTasks = tasksRef.current;
-    const currentBlockers = blockersRef.current;
-
-    // 내용이 없으면 저장하지 않음
-    const hasContent = currentTasks.some((t) => t.text.trim()) || currentBlockers.trim();
+  const saveWithSnapshot = useCallback(async (snapshot: { tasks: Task[]; blockers: string; date: string }) => {
+    // 빈 데이터는 절대 저장하지 않음 (기존 기록 덮어쓰기 방지)
+    const hasContent = snapshot.tasks.some((t) => t.text.trim()) || snapshot.blockers.trim();
     if (!hasContent) return;
 
-    setSaving(true);
+    if (mountedRef.current) setSaving(true);
     try {
-      const completedTasks = currentTasks
+      const completedTasks = snapshot.tasks
         .filter((t) => t.completed)
         .map((t) => ({ id: t.id, text: t.text }));
 
@@ -57,51 +51,111 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          date,
-          plannedTasks: currentTasks,
+          date: snapshot.date,
+          plannedTasks: snapshot.tasks,
           completedTasks,
-          blockers: currentBlockers || undefined,
+          blockers: snapshot.blockers || undefined,
         }),
       });
 
       if (!res.ok) throw new Error("Failed to save");
-      setSaved(true);
-      setDirty(false);
+      if (mountedRef.current) {
+        setSaved(true);
+        setDirty(false);
+        pendingSnapshotRef.current = null;
+      }
       onSaved();
     } catch {
-      toast({
-        title: "자동 저장 실패",
-        description: "잠시 후 다시 시도됩니다.",
-        variant: "destructive",
-      });
+      if (mountedRef.current) {
+        toast({
+          title: "자동 저장 실패",
+          description: "잠시 후 다시 시도됩니다.",
+          variant: "destructive",
+        });
+      }
     } finally {
-      setSaving(false);
+      if (mountedRef.current) setSaving(false);
     }
-  }, [date, onSaved]);
+  }, [onSaved]);
 
-  // dirty 상태 변경 시 debounce 자동저장
+  // dirty 상태 변경 시 debounce 자동저장 — 스냅샷을 미리 캡처
   useEffect(() => {
     if (!dirty) return;
+
+    // 현재 상태의 스냅샷을 캡처 (클로저 문제 방지)
+    const snapshot = { tasks: [...tasks], blockers, date };
+    pendingSnapshotRef.current = snapshot;
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      saveToServer();
+      saveWithSnapshot(snapshot);
     }, 1500);
+
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [dirty, tasks, blockers, saveToServer]);
+  }, [dirty, tasks, blockers, date, saveWithSnapshot]);
+
+  // 컴포넌트 언마운트 시 pending 저장을 즉시 실행 (데이터 유실 방지)
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      // 미저장 스냅샷이 있으면 즉시 저장 (fire-and-forget)
+      const snapshot = pendingSnapshotRef.current;
+      if (snapshot) {
+        const hasContent = snapshot.tasks.some((t) => t.text.trim()) || snapshot.blockers.trim();
+        if (hasContent) {
+          const completedTasks = snapshot.tasks
+            .filter((t) => t.completed)
+            .map((t) => ({ id: t.id, text: t.text }));
+
+          fetch("/api/daily-logs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              date: snapshot.date,
+              plannedTasks: snapshot.tasks,
+              completedTasks,
+              blockers: snapshot.blockers || undefined,
+            }),
+          }).catch(() => {});
+        }
+        pendingSnapshotRef.current = null;
+      }
+    };
+  }, []);
 
   // 페이지 이탈 시 미저장 내용 즉시 저장
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (dirty) {
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        saveToServer();
+      const snapshot = pendingSnapshotRef.current;
+      if (snapshot) {
+        const hasContent = snapshot.tasks.some((t) => t.text.trim()) || snapshot.blockers.trim();
+        if (hasContent) {
+          if (debounceRef.current) clearTimeout(debounceRef.current);
+          const completedTasks = snapshot.tasks
+            .filter((t) => t.completed)
+            .map((t) => ({ id: t.id, text: t.text }));
+
+          // sendBeacon for reliable unload saving
+          const data = JSON.stringify({
+            date: snapshot.date,
+            plannedTasks: snapshot.tasks,
+            completedTasks,
+            blockers: snapshot.blockers || undefined,
+          });
+          navigator.sendBeacon?.("/api/daily-logs", new Blob([data], { type: "application/json" }));
+        }
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [dirty, saveToServer]);
+  }, []);
 
   const markDirty = () => {
     setSaved(false);
@@ -114,7 +168,6 @@ export function DailyLogForm({ date, initialData, onSaved }: DailyLogFormProps) 
       { id: crypto.randomUUID(), text: "", completed: false },
     ];
     setTasks(newTasks);
-    // 빈 할 일 추가만으로는 자동저장 안 함 (텍스트 입력 시 저장됨)
   };
 
   const toggleTask = (id: string) => {
